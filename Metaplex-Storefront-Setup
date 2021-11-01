@@ -48,14 +48,28 @@ error_check () {
 #Configure the site to the users liking.
 site_renov () {
   #Site Logo address
-  read -p "For the site Logo, paste the address where your image is hosted: " LOGO
+  read -p "For the ${SITENAME} Logo, paste the URL address where your Logo is hosted: " LOGO
+  sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${LOGO}}'|" ${SITEPATH}/views/home/auctionList.tsx
+  error_check
   echo "Adjusting background size..."
   sed -i "s/background-size: 924px 100%;/background-size: 100% 100%;/" ${SITEPATH}/components/Banner/index.less
   error_check
   echo "Removing gradient from overshadowing banner..."
   sed -i "s/background: linear-gradient(180deg, rgba(18, 18, 18, 0) 0%, @black-100 100%);/background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);/" ${SITEPATH}/components/Banner/index.less
   error_check
-
+  read -p "For the ${SITENAME} banner, paste the URL address where your banner is hosted: " BANNER
+  sed -i "s|/main-banner.svg|${BANNER}|" ${SITEPATH}/src/views/home/auctionList.tsx
+  error_check
+  read -p "Enter a heading for ${SITENAME}. This will replace <The amazing world of Metaplex.> " HEADING
+  sed -i "s/The amazing world of Metaplex./${HEADING}/" ${SITEPATH}/views/home/auctionList.tsx
+  error_check
+  read -p "Enter a sub-Heading for ${SITENAME}. This will replace <Buy exclusive Metaplex NFTs.> " SUBHEAD
+  sed -i "s/Buy exclusive Metaplex NFTs./${SUBHEAD}/" ${SITEPATH}/views/home/auctionList.tsx
+  error_check
+  sleep 1
+  clear
+  echo "${SITENAME} has been configured to your specification."
+  sleep .5
 }
 
 #Clone the Metaplex Repo from the Users Github repository.
