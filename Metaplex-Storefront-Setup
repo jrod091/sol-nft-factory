@@ -47,6 +47,13 @@ error_check () {
 
 #Configure the site to the users liking.
 site_renov () {
+  read -p "Continue with making site changes at ${SITENAME}?" CHANGES
+while [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; do
+  read -p "What should the site name be? Default is Metaplex NFT Marketplace: " STORE
+  sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_app.tsx
+  error_check
+  sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_document.tsx
+  error_check
   #Site Logo address
   read -p "For the ${SITENAME} Logo, paste the URL address where your Logo is hosted: " LOGO
   sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${LOGO}}'|" ${SITEPATH}/views/home/auctionList.tsx
@@ -70,6 +77,7 @@ site_renov () {
   clear
   echo "${SITENAME} has been configured to your specification."
   sleep .5
+done
 }
 
 #Clone the Metaplex Repo from the Users Github repository.
