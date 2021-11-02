@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #**********************************************
-#        Metaplex Storefront Installer        *
+#          Metaplex Store Installer           *
 # Created By: BlackRanger07                   *
 # Copyright: BlackRanger07 - Oct 2021         *
 #**********************************************
@@ -97,8 +97,12 @@ site_renov () {
   sed -i "s/Buy exclusive Metaplex NFTs./${SUBHEAD}/" ${SITEPATH}/views/home/auctionList.tsx
   error_check
   clear
-  read -p "Are you satisfied with your changes at ${SITENAME}?" CHANGES
+  read -p "Are you satisfied with your changes to [ ${SITENAME} ]?" CHANGES
   if [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; then
+    clear
+    echo "The site will now be deployed. Have your github account and access code ready..."
+    sleep 1.5
+    yarn deploy
     echo "${SITENAME} has been configured to your specification."
   elif [ ${CHANGES} = "n" ] || [ ${CHANGES} = "N" ]; then
     site_demo
@@ -143,7 +147,7 @@ if [ $? = 0 ]; then
     yarn bootstrap
     if [ $? = 0 ]; then
       clear
-      echo "Metaplex will now be built and deployed. Have your github account and access code ready."
+      echo "Metaplex will now be built."
       yarn build
       if [ $? = 0 ]; then
         cd packages/web
@@ -155,13 +159,15 @@ if [ $? = 0 ]; then
           git config --global user.email "${EMAIL}"
           git config --global user.name "${USER}"
         fi
-        #Deploy the Metaplex site and Go Live.
-        yarn deploy
         if [ $? = 0 ]; then
           clear
           read -p "Would you like to make site modifications to ${SITENAME}? (Y/n)" CHOICE
           if [ ${CHOICE} = "y" ] || [ ${CHOICE} == "Y" ]; then
             site_renov
+          else
+            #Deploy the Metaplex site and Go Live.
+            echo "Metaplex will now be deployed. Have your github account and access code ready."
+            yarn deploy
           fi
           clear
           echo "************************************************************************"
