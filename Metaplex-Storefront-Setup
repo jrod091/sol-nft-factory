@@ -15,6 +15,8 @@ SITENAME=""
 SITEPATH="${current_dir}/metaplex/js/packages/web/src"
 asset_pfix_new="ASSET_PREFIX="
 asset_pfix_old="ASSET_PREFIX=/metaplex/"
+GRADIENT="background: linear-gradient(180deg, rgba(18, 18, 18, 0) 0%, @black-100 100%);"
+NO_GRADIENT="background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);"
 
 #Functions Here
 filechanges () {
@@ -45,10 +47,31 @@ error_check () {
   fi
 }
 
+site_demo () {
+  #Revert Changes so that user can make the proper changes in site renov function.
+  echo "Reverting changes..."
+  sed -i "s|${STORE}|Metaplex NFT Marketplace|" ${SITEPATH}/src/pages/_app.tsx
+  error_check
+  sed -i "s|${STORE}|Metaplex NFT Marketplace|" ${SITEPATH}/src/pages/_document.tsx
+  error_check
+  sed -i "s|img src={'${LOGO}'}|img src={'/metaplex-logo.svg'}|" ${SITEPATH}/views/home/auctionList.tsx
+  error_check
+  sed -i "s/background-size: 100% 100%;/background-size: 924px 100%;/" ${SITEPATH}/components/Banner/index.less
+  error_check
+  echo "Adding gradient over banner..."
+  sed -i "s/${NO_GRADIENT}/${GRADIENT}/" ${SITEPATH}/components/Banner/index.less
+  error_check
+  sed -i "s|${BANNER}|/main-banner.svg|" ${SITEPATH}/src/views/home/auctionList.tsx
+  error_check
+  sed -i "s/${HEADING}/The amazing world of Metaplex./" ${SITEPATH}/views/home/auctionList.tsx
+  error_check
+  sed -i "s/${SUBHEAD}/Buy exclusive Metaplex NFTs./" ${SITEPATH}/views/home/auctionList.tsx
+  error_check
+  clear
+}
+
 #Configure the site to the users liking.
 site_renov () {
-  read -p "Continue with making site changes at ${SITENAME}?" CHANGES
-while [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; do
   read -p "What should the site name be? Default is Metaplex NFT Marketplace: " STORE
   sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_app.tsx
   error_check
@@ -56,13 +79,13 @@ while [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; do
   error_check
   #Site Logo address
   read -p "For the ${SITENAME} Logo, paste the URL address where your Logo is hosted: " LOGO
-  sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${LOGO}}'|" ${SITEPATH}/views/home/auctionList.tsx
+  sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${LOGO}'}|" ${SITEPATH}/views/home/auctionList.tsx
   error_check
   echo "Adjusting background size..."
   sed -i "s/background-size: 924px 100%;/background-size: 100% 100%;/" ${SITEPATH}/components/Banner/index.less
   error_check
   echo "Removing gradient from overshadowing banner..."
-  sed -i "s/background: linear-gradient(180deg, rgba(18, 18, 18, 0) 0%, @black-100 100%);/background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);/" ${SITEPATH}/components/Banner/index.less
+  sed -i "s/${GRADIENT}/${NO_GRADIENT}/" ${SITEPATH}/components/Banner/index.less
   error_check
   read -p "For the ${SITENAME} banner, paste the URL address where your banner is hosted: " BANNER
   sed -i "s|/main-banner.svg|${BANNER}|" ${SITEPATH}/src/views/home/auctionList.tsx
@@ -73,11 +96,13 @@ while [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; do
   read -p "Enter a sub-Heading for ${SITENAME}. This will replace <Buy exclusive Metaplex NFTs.> " SUBHEAD
   sed -i "s/Buy exclusive Metaplex NFTs./${SUBHEAD}/" ${SITEPATH}/views/home/auctionList.tsx
   error_check
-  sleep 1
   clear
-  echo "${SITENAME} has been configured to your specification."
-  sleep .5
-done
+  read -p "Are you satisfied with your changes at ${SITENAME}?" CHANGES
+  if [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; then
+    echo "${SITENAME} has been configured to your specification."
+  elif [ ${CHANGES} = "n" ] || [ ${CHANGES} = "N" ]; then
+    site_demo
+  fi
 }
 
 #Clone the Metaplex Repo from the Users Github repository.
