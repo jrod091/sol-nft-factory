@@ -159,10 +159,10 @@ if [ $? = 0 ]; then
         yarn deploy
         if [ $? = 0 ]; then
           clear
-          #read -p "Would you like to make site modifications to your liking? (Y/n)" CHOICE
-          #if [ ${CHOICE} = "y" ] || [ ${CHOICE} == "Y" ]; then
-            #site_renov Currently under development, Site Customization coming soon!
-          #fi
+          read -p "Would you like to make site modifications to ${SITENAME}? (Y/n)" CHOICE
+          if [ ${CHOICE} = "y" ] || [ ${CHOICE} == "Y" ]; then
+            site_renov
+          fi
           clear
           echo "************************************************************************"
           echo "  Your metaplex store is now ready to be used at: ${SITENAME}"
