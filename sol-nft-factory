@@ -39,17 +39,19 @@ fi
 ## VARIABLES
 network=''
 pubkey=''
-current_dir=''
-metaplex_dir=''
-assets_dir=''
-js_dir=''
-cm_cli=''
-cmm_dir=''
-env_ex_file=''
-env_file=''
+current_dir=$(pwd)
+log_file="${current_dir}/sol-nft-factory_error.log"
+metaplex_dir="${current_dir}/metaplex"
+assets_dir="${current_dir}/assets"
+js_dir="${metaplex_dir}/js"
+web_dir="${js_dir}/packages/web"
+cm_cli="${js_dir}/packages/cli/src/candy-machine-cli.ts"
 num_imgs=''
 distro=''
 subcommand=''
+github_name=''
+sitename=''
+sitepath="${web_dir}/src"
 
 ## FUNCTIONS
 help_print() { # print help text
@@ -57,13 +59,42 @@ help_print() { # print help text
 Usage: sol-nft-factory <command> <options>
 
 Commands:
+   initial_full   setup Metaplex store plus any customizations and setup candy machine and mint images
    initial_mint   setup candy machine and mint images
+   initial_store  setup Metaplex store
    mint_more      run candy machine to mint more images
+   site_customize run customizations to Metaplex store
 
 Options:
    -h, --help              print this help message
 
 You can run 'sol-nft-factory <command> -h/--help' to see help for specific command.
+EOF
+}
+
+initial_full_help_print() {
+   cat <<EOF
+Usage: sol-nft-factory initial_full <options>
+
+Options:
+   -d, --devnet                  set 'devnet' as network
+   -g {NAME}, --ghname {NAME}    set github username
+   -h, --help                    print command line options
+   -m, --mainnet                 set 'mainnet' as network
+   -s {NAME}, --sitename {NAME}  set public DNS name for website
+   -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
+EOF
+}
+
+initial_store_help_print() {
+   cat <<EOF
+Usage: sol-nft-factory initial_store <options>
+
+Options:
+   -g {NAME}, --ghname {NAME}    set github username
+   -h, --help                    print command line options
+   -s {NAME}, --sitename {NAME}  set public DNS name for website
+   -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
 EOF
 }
 
@@ -75,7 +106,6 @@ Options:
    -d, --devnet            set 'devnet' as network
    -h, --help              print command line options
    -m, --mainnet           set 'mainnet' as network
-   -n, --newwallet         setup new wallet locally
    -w {ID}, --wallet={ID}  set public wallet key address from Phantom or other source
 EOF
 }
@@ -88,6 +118,18 @@ Options:
    -d, --devnet            set 'devnet' as network
    -h, --help              print command line options
    -m, --mainnet           set 'mainnet' as network
+EOF
+}
+
+site_customize_help_print() {
+   cat <<EOF
+Usage: sol-nft-factory site_customize <options>
+
+Options:
+   -g {NAME}, --ghname {NAME}    set github username
+   -h, --help                    print command line options
+   -s {NAME}, --sitename {NAME}  set public DNS name for website
+   -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
 EOF
 }
 
@@ -204,130 +246,7 @@ check_alt() {
    fi
 }
 
-candy_machine() {
-   solana config set --url https://api.${network}.solana.com >/dev/null # set solana network
-   check_cmd $? "unable to set Solana network"
-   keyJSON="${HOME}/.config/solana/wallet.json"
-
-   if [ ! -f $keyJSON ]; then # only if keypair doesn't exist
-      if [ "${pubkey}" = "new" ]; then # generate new wallet
-         solana-keygen new --outfile $keyJSON > tmp.txt
-         check_cmd $? "unable to create wallet"
-
-         pubkey=$(cat tmp.txt | grep pubkey | cut -d' ' -f2)
-         passphrase=$(cat tmp.txt | grep -A 1 recover | grep -v recover)
-
-         rm -f tmp.txt # remove file so seed phrase is not saved on system
-         echo "Save this seed phrase and your BIP39 passphrase to recover your new keypair: [${passphrase}]."
-         read -r -s -N 1 -p "Press [Enter] to continue..."
-      else  #import public wallet
-         echo "${orange}Note: You will need your recovery phrase to import wallet. This is required by Solana CLI and will not be saved by this script nor on the system anywhere. The input is silent as well so no one can see the input as you type it in or paste it!${normal}"
-         solana-keygen recover 'prompt://?key=0/0' --outfile $keyJSON
-         check_cmd $? "failed to import wallet."
-      fi
-   fi
-
-   solana config set --keypair $keyJSON >/dev/null # set Solana CLI to use wallet
-   check_cmd $? "unable to set keypair"
-   success_print "set keypair successfully."
-
-   if [ "${network}" = "devnet" ]; then # only airdrop if running on devnet
-      solana airdrop 1 &>/dev/null #airdrop some SOL
-      check_cmd $? "airdrop to wallet failed."
-      success_print "airdropped 1 SOL."
-   fi
-
-   metaplex_dir="${current_dir}/metaplex"
-   assets_dir="${current_dir}/assets"
-
-   if [ ! -d $assets_dir ]; then # only if directory doesn't exist
-      printf "Creating directory for images..."
-      mkdir $assets_dir &>/dev/null # create directory for assests
-      check_cmd $? "failed to create [$assets_dir}]."
-      success_printf "Directory [${assets_dir}] created successfully."
-   fi
-
-   js_dir="${metaplex_dir}/js"
-   cd $js_dir
-
-   if [ "${subcommand}" == "initial_mint" ]; then # only for initial run
-      printf "Installing node modules..."
-      yarn install --silent 2>>${log_file} & # install required npm modules
-      spinner
-      check_cmd $? "failed to install node modules."
-      success_printf "Node modules installed successfully."
-   fi
-
-   printf "${orange}********************************************************************************************************************************************\nPausing to allow time to upload images and JSON files to [${assets_dir}]. Refer to the README for further\ninformation on properly setting up your images and JSON files.\n********************************************************************************************************************************************\n${normal}"
-   read -r -s -N 1 -p "Press [Enter] to continue..." key
-   echo ""
-
-   cd ${current_dir} # go back to starting location to save mint cache there
-   cm_cli="${js_dir}/packages/cli/src/candy-machine-cli.ts"
-
-   printf "Uploading images for candy machine..."
-   ts-node $cm_cli upload $assets_dir --env ${network} --keypair ${keyJSON} 2>>${log_file} 1>/dev/null &
-   spinner
-   check_cmd $? "failed to upload images."
-   success_printf "Image upload successful."
-
-   read -p "What would you like the price of the NFTs to be (in SOL): " price
-
-   printf "Creating candy machine..."
-   ts-node $cm_cli create_candy_machine --env ${network} --keypair ${keyJSON} --price ${price} 2>>${log_file} 1>/dev/null &
-   spinner
-   check_cmd $? "failed to create candy machine."
-   success_printf "Candy machine created successfully."
-
-   start_of_today=`date '+%d %b %Y 00:00:00 %Z'`
-   printf "Updating candy machine with available minting start date to [${start_of_today}]..."
-   ts-node $cm_cli update_candy_machine --env ${network} --keypair ${keyJSON} --date "${start_of_today}" 2>>${log_file} 1>/dev/null &
-   spinner
-   check_cmd $? "failed to update candy machine."
-   success_printf "Date updated successfully."
-
-   num_imgs=$((`ls ${assets_dir} | wc -l` / 2 )) # get number of images in assets directory
-   count=0 # used in progress print
-
-   for i in $(seq $num_imgs); do # mint images, one at a time
-      printf "\rMinting operation ongoing, successfully minted [${count}/${num_imgs}]..."
-      ts-node $cm_cli mint_one_token -e ${network} -k ${keyJSON} 2>>${log_file} 1>/dev/null &
-      spinner
-      check_cmd $? "unable to mint image."
-      count=$((count+1))
-   done
-   printf "\r\033[K" # return cursor to beginning and clear
-   success_print "[${count}] images successfully minted."
-
-   printf "Signing tokens..."
-   ts-node $cm_cli sign_all -e ${network} -k ${keyJSON} 2>>${log_file} 1>/dev/null &
-   spinner
-   check_cmd $? "unable to sign tokens."
-   success_printf "Tokens signed successfully."
-
-   echo ""
-   echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallet: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt]${normal}"
-}
-
-init_mint() {
-   ## CHECK REQUIRED FLAGS
-   if [ "${network}" = "" ]; then
-      err_print "Fatal: Solana network not set!"
-      warn_print "Pass the [-d] flag for devnet or the [-m] flag for mainnet"
-      init_mint_help_print
-      exit 3
-   fi
-
-   if [ "${pubkey}" = "" ]; then
-      err_print "Fatal: Wallet address required!"
-      warn_print "Pass the [-n] flag to create a new wallet or the [-w] flag followed by your wallet address"
-      init_mint_help_print
-      exit 4
-   fi
-
-   current_dir=$(pwd) # save current working directory
-   log_file="${current_dir}/candy_machine_setup_error.log"
-
+install_prereqs() { # check for and install prereqs
    `sudo apt-update &>/dev/null` # just to prompt for sudo password upfront
 
    # install pre-requisites
@@ -373,10 +292,9 @@ init_mint() {
       install_pkg gnupg
    fi
 
-   # check if 'nodejs' is setup, install if not
    printf "Checking to see if [nodejs] installed..."
    if node --version &>/dev/null; then
-      success_printf "[nodejs found]"
+      success_printf "[nodejs] found"
    else
       node_repo="node_14.x" # v16 was giving issues with latest metaplex build
       distro=$(lsb_release -c -s)
@@ -470,15 +388,6 @@ init_mint() {
       install_pkg git
    fi
 
-   # clone metaplex repo
-   if [ ! -d "${current_dir}/metaplex" ]; then # only clone if not already existing
-      printf "cloning [metaplex] repo..."
-      git clone https://github.com/metaplex-foundation/metaplex.git &>/dev/null &
-      spinner
-      check_cmd $? "failed to clone [metaplex] repo."
-      success_printf "[metaplex] repo cloned successfully."
-   fi
-
    # check if 'ts-node' installed, install if not
    if check_npm_installed ts-node; then
       success_printf "[ts-node] found."
@@ -498,8 +407,240 @@ init_mint() {
       . ~/.profile # source .profile so PATH updates in current session
       success_printf "[solana] installed successfully."
    fi
+}
+
+candy_machine() {
+   solana config set --url https://api.${network}.solana.com >/dev/null # set solana network
+   check_cmd $? "unable to set Solana network"
+   keyJSON="${HOME}/.config/solana/wallet.json"
+
+   if [ ! -f $keyJSON ]; then # only if keypair doesn't exist
+      echo "${orange}Note: You will need your recovery phrase to import wallet. This is required by Solana CLI and will not be saved by this script nor on the system anywhere. The input is silent as well so no one can see the input as you type it in or paste it!${normal}"
+      solana-keygen recover 'prompt://?key=0/0' --outfile $keyJSON
+      check_cmd $? "failed to import wallet."
+   fi
+
+   solana config set --keypair $keyJSON >/dev/null # set Solana CLI to use wallet
+   check_cmd $? "unable to set keypair"
+   success_print "set keypair successfully."
+
+   if [ "${network}" = "devnet" ]; then # only airdrop if running on devnet
+      solana airdrop 1 &>/dev/null #airdrop some SOL
+      check_cmd $? "airdrop to wallet failed."
+      success_print "airdropped 1 SOL."
+   fi
+
+   if [ ! -d $assets_dir ]; then # only if directory doesn't exist
+      printf "Creating directory for images..."
+      mkdir $assets_dir &>/dev/null # create directory for assests
+      check_cmd $? "failed to create [$assets_dir}]."
+      success_printf "Directory [${assets_dir}] created successfully."
+   fi
+
+   printf "${orange}********************************************************************************************************************************************\nPausing to allow time to upload images and JSON files to [${assets_dir}]. Refer to the README for further\ninformation on properly setting up your images and JSON files.\n********************************************************************************************************************************************\n${normal}"
+   read -r -s -N 1 -p "Press [Enter] to continue..." key
+   echo ""
+
+   cd ${current_dir} # go back to starting location to save mint cache there
+
+   printf "Uploading images for candy machine..."
+   ts-node $cm_cli upload $assets_dir --env ${network} --keypair ${keyJSON} 2>>${log_file} 1>/dev/null &
+   spinner
+   check_cmd $? "failed to upload images."
+   success_printf "Image upload successful."
+
+   read -p "What would you like the price of the NFTs to be (in SOL): " price
+
+   printf "Creating candy machine..."
+   ts-node $cm_cli create_candy_machine --env ${network} --keypair ${keyJSON} --price ${price} 2>>${log_file} 1>/dev/null &
+   spinner
+   check_cmd $? "failed to create candy machine."
+   success_printf "Candy machine created successfully."
+
+   start_of_today=`date '+%d %b %Y 00:00:00 %Z'`
+   printf "Updating candy machine with available minting start date to [${start_of_today}]..."
+   ts-node $cm_cli update_candy_machine --env ${network} --keypair ${keyJSON} --date "${start_of_today}" 2>>${log_file} 1>/dev/null &
+   spinner
+   check_cmd $? "failed to update candy machine."
+   success_printf "Date updated successfully."
+
+   num_imgs=$((`ls ${assets_dir} | wc -l` / 2 )) # get number of images in assets directory
+   count=0 # used in progress print
+
+   for i in $(seq $num_imgs); do # mint images, one at a time
+      printf "\rMinting operation ongoing, successfully minted [${count}/${num_imgs}]..."
+      ts-node $cm_cli mint_one_token -e ${network} -k ${keyJSON} 2>>${log_file} 1>/dev/null &
+      spinner
+      check_cmd $? "unable to mint image."
+      count=$((count+1))
+   done
+   printf "\r\033[K" # return cursor to beginning and clear
+   success_print "[${count}] images successfully minted."
+
+   printf "Signing tokens..."
+   ts-node $cm_cli sign_all -e ${network} -k ${keyJSON} 2>>${log_file} 1>/dev/null &
+   spinner
+   check_cmd $? "unable to sign tokens."
+   success_printf "Tokens signed successfully."
+
+   echo ""
+   echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallet: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt]${normal}"
+}
+
+package_json_changes() {
+   package_json="${web_dir}/package.json"
+   # Change the owner name of the repository for Metaplex."
+   sed -i 's/metaplex-foundation/'${GITHUB}'/g' ${package_json}
+   # Modify Asset Prefix in package.json line 56.
+   sed -i "s|${asset_pfix_old}|${asset_pfix_new}|" ${package_json}
+   # Change access to SSH based so there is no prompt for username/password
+   sed -i "s|https://github.com/|git@github.com:|" ${package_json}
+   # Set wallet address
+   sed -i "s/REACT_APP_STORE_OWNER_ADDRESS_ADDRESS=/REACT_APP_STORE_OWNER_ADDRESS_ADDRESS=${pubkey}/" ${package_json}
+   # Add CNAME
+   echo ${sitename} > ${web_dir}/public/CNAME
+}
+
+metaplex_setup() {
+   # clone metaplex repo
+   if [ ! -d "${metaplex_dir}" ]; then # only clone if not already existing
+      printf "cloning [metaplex] repo..."
+      if [ "${subcommand}" = "init_mint" ]; then
+         metaplex_clone="git@github.com:metaplex-foundation/metaplex.git"
+      else
+         metaplex_clone="git@github.com:${github_name}/metaplex.git"
+      fi
+      git clone ${metaplex_clone} &>/dev/null &
+      spinner
+      check_cmd $? "failed to clone [metaplex] repo."
+      success_printf "[metaplex] repo cloned successfully."
+   fi
+
+   cd $js_dir
+
+   if [ ! -d "${js_dir}/node_modules" ]; then # only if modules not installed
+      printf "Installing node modules..."
+      yarn install --silent 2>>${log_file} & # install required npm modules
+      spinner
+      check_cmd $? "failed to install node modules."
+      success_printf "Node modules installed successfully."
+   fi
+
+   if [ "${subcommand}" = "install_full" || "${subcommand}" = "install_store" ]; then
+      printf "Bundling app into static files for production..."
+      yarn build 2>>${log_file} 1>/dev/null &
+      spinner
+      check_cmd $? "failed to bundle app"
+      success_printf "Bundle completed successfully."
+
+      printf "Creating bootstrap..."
+      yarn bootstrap 2>>${log_file} 1>/dev/null &
+      spinner
+      check_cmd $? "failed to create bootstrap"
+      success_printf "Bootsrap completed successfully."
+
+      package_json_changes
+
+      cd ${web_dir}
+
+      printf "Deploying website back to Github..."
+      yarn deploy 2>>${log_file} 1>/dev/null &
+      spinner
+      check_cmd $? "failed to deploy website"
+      success_printf "Website deployed successfully."
+   fi
+}
+
+init_full() {
+   ## CHECK REQUIRED FLAGS
+   if [ "${github_name}" = "" ]; then
+      err_print "Fatal: Github username not set!"
+      warn_print "Pass the [-g] flag along with your Github username."
+      init_full_help_print
+      exit 2
+   fi
+
+   if [ "${network}" = "" ]; then
+      err_print "Fatal: Solana network not set!"
+      warn_print "Pass the [-d] flag for devnet or the [-m] flag for mainnet"
+      init_full_help_print
+      exit 3
+   fi
+
+   if [ "${pubkey}" = "" ]; then
+      err_print "Fatal: Wallet address required!"
+      warn_print "Pass the [-n] flag to create a new wallet or the [-w] flag followed by your wallet address"
+      init_full_help_print
+      exit 4
+   fi
+
+   if [ "${sitename}" = "" ]; then
+      err_print "Fatal: DNS name not set!"
+      warn_print "Pass the [-s] flag along with the DNS name for the store website"
+      init_full_help_print
+      exit 5
+   fi
+
+   install_prereqs
+
+   metaplex_setup
 
    candy_machine
+
+   exit 0 # normal exit
+}
+
+init_mint() {
+   ## CHECK REQUIRED FLAGS
+   if [ "${network}" = "" ]; then
+      err_print "Fatal: Solana network not set!"
+      warn_print "Pass the [-d] flag for devnet or the [-m] flag for mainnet"
+      init_mint_help_print
+      exit 3
+   fi
+
+   if [ "${pubkey}" = "" ]; then
+      err_print "Fatal: Wallet address required!"
+      warn_print "Pass the [-n] flag to create a new wallet or the [-w] flag followed by your wallet address"
+      init_mint_help_print
+      exit 4
+   fi
+
+   install_prereqs
+
+   metaplex_setup
+
+   candy_machine
+
+   exit 0 # normal exit
+}
+
+init_store() {
+   ## CHECK REQUIRED FLAGS
+   if [ "${github_name}" = "" ]; then
+      err_print "Fatal: Github username not set!"
+      warn_print "Pass the [-g] flag along with your Github username."
+      init_full_help_print
+      exit 2
+   fi
+
+   if [ "${pubkey}" = "" ]; then
+      err_print "Fatal: Wallet address required!"
+      warn_print "Pass the [-w] flag followed by your wallet address"
+      init_full_help_print
+      exit 3
+   fi
+
+   if [ "${sitename}" = "" ]; then
+      err_print "Fatal: DNS name not set!"
+      warn_print "Pass the [-s] flag along with the DNS name for the store website"
+      init_full_help_print
+      exit 4
+   fi
+
+   install_prereqs
+
+   metaplex_setup
 
    exit 0 # normal exit
 }
@@ -517,14 +658,15 @@ mint() {
       exit 3
    fi
 
-   current_dir=$(pwd) # save current working directory
-   log_file="${current_dir}/candy_machine_setup_error.log"
-
    rm -rf "${current_dir}/.cache" &>/dev/null
 
    candy_machine
 
    exit 0
+}
+
+site_custom() {
+   # TO-DO
 }
 
 ## USER INPUT
@@ -545,8 +687,29 @@ shift $((OPTIND-1)) # remove parsed options and args from $@ list
 
 subcommand=$1; shift # remove script name from arg list
 case "$subcommand" in
+   initial_full)
+      while getopts ":dg:hms:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then   # long option support
+               OPT="${OPTARG%%=*}"     # extract long option name
+               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+         fi
+
+         case ${opt} in
+               d | devnet )      network='devnet' ;;                 # set devnet
+               g | ghname)       github_name="${OPTARG}";;           # set github username
+               h | help )        initial_full_help_print; exit 0;;   # print help
+               m | mainnet )     network='mainnet-beta' ;;           # set mainnet
+               s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
+               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+               ? )               bad_opt "Unkown option" ;;          # bad short option
+         esac
+      done
+      shift $((OPTIND-1))
+      ;;
    initial_mint)
-      while getopts ":dhmnw:-:" opt; do
+      while getopts ":dhmw:-:" opt; do
          if [ "$OPT" = "-" ]; then   # long option support
                OPT="${OPTARG%%=*}"     # extract long option name
                OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
@@ -557,7 +720,25 @@ case "$subcommand" in
                d | devnet )      network='devnet' ;;                 # set devnet
                h | help )        initial_mint_help_print; exit 0;;   # print help
                m | mainnet )     network='mainnet-beta' ;;           # set mainnet
-               n | newwallet )   pubkey='new' ;;                     # generate new wallet
+               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+               ? )               bad_opt "Unkown option" ;;          # bad short option
+         esac
+      done
+      shift $((OPTIND-1))
+      ;;
+   initial_store)
+      while getopts ":g:hs:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then   # long option support
+               OPT="${OPTARG%%=*}"     # extract long option name
+               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+         fi
+
+         case ${opt} in
+               g | ghname)       github_name="${OPTARG}";;           # set github username
+               h | help )        initial_store_help_print; exit 0;;  # print help
+               s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
                w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
                ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
                ? )               bad_opt "Unkown option" ;;          # bad short option
@@ -583,17 +764,44 @@ case "$subcommand" in
       done
       shift $((OPTIND-1))
       ;;
+   site_customize)
+      while getopts ":g:hs:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then   # long option support
+               OPT="${OPTARG%%=*}"     # extract long option name
+               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+         fi
+
+         case ${opt} in
+               g | ghname)       github_name="${OPTARG}";;           # set github username
+               h | help )        initial_store_help_print; exit 0;;  # print help
+               s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
+               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+               ? )               bad_opt "Unkown option" ;;          # bad short option
+         esac
+      done
+      shift $((OPTIND-1))
+      ;;
 esac
 
-if [ "${subcommand}" == "" ]; then
+if [ "${subcommand}" = "" ]; then
    err_print "Fatal: no command passed!"
    warn_print "Pass 'initial_mint' or 'mint_more' plus any required options"
    help_print
    exit 1
-elif [ "${subcommand}" == "initial_mint" ]; then
+elif [ "${subcommand}" = "initial_mint" ]; then
+   clear # Start with a fresh screen
    init_mint
-elif [ "${subcommand}" == "mint_more" ]; then
+elif [ "${subcommand}" = "mint_more" ]; then
+   clear # Start with a fresh screen
    mint
+elif [ "${subcommand}" = "initial_full" ]; then
+   clear # STart with a fresh screen
+   init_full
+elif [ "${subcommand}" = "initial_store" ]; then
+   clear # STart with a fresh screen
+   init_store
 else
    err_print "Fatal: unknonw command!"
    help_print
