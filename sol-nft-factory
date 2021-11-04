@@ -306,7 +306,7 @@ candy_machine() {
    success_printf "Tokens signed successfully."
 
    echo ""
-   echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallet: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt]${normal}"
+   echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallets: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt] [9inpsvQZYiTekRJEuNBLjPjNoQzSCDx9iuHMq3uTzssB]${normal}"
 }
 
 init_mint() {
