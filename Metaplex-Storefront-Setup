@@ -50,12 +50,12 @@ error_check () {
 #Configure the site to the users liking.
 site_renov () {
 while [ ${CHANGES} != "Y" ] || [ ${CHANGES} != "y" ]; do
+  clear
   read -p "What should the site name be? Default is Metaplex NFT Marketplace: " STORE
   read -p "For the ${SITENAME} Logo, paste the URL address where your Logo is hosted: " LOGO
   read -p "For the ${SITENAME} banner, paste the URL address where your banner is hosted: " BANNER
   read -p "Enter a heading for ${SITENAME}. This will replace <The amazing world of Metaplex.> " HEADING
   read -p "Enter a sub-Heading for ${SITENAME}. This will replace <Buy exclusive Metaplex NFTs.> " SUBHEAD
-  clear
   read -p "Are you satisfied with your changes to [ ${SITENAME} ]?" CHANGES
   if [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; then
     sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_app.tsx
