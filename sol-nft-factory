@@ -52,6 +52,13 @@ subcommand=''
 github_name=''
 sitename=''
 sitepath="${web_dir}/src"
+storename=''
+logo_path=''
+banner=''
+header=''
+subheader=''
+gradient="background: linear-gradient(180deg, rgba(18, 18, 18, 0) 0%, @black-100 100%);"
+no_gradient="background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);"
 
 ## FUNCTIONS
 help_print() { # print help text
@@ -59,10 +66,11 @@ help_print() { # print help text
 Usage: sol-nft-factory <command> <options>
 
 Commands:
-   initial_full   setup Metaplex store plus any customizations and setup candy machine and mint images
+   initial_full   setup Metaplex store plus customizations and setup candy machine and mint images
    initial_mint   setup candy machine and mint images
-   initial_store  setup Metaplex store
+   initial_store  setup Metaplex store plus customizations
    mint_more      run candy machine to mint more images
+   site_reset     reset customizations to Metaplex store
    site_customize run customizations to Metaplex store
 
 Options:
@@ -77,11 +85,17 @@ initial_full_help_print() {
 Usage: sol-nft-factory initial_full <options>
 
 Options:
+   -b {PATH}, --banner={PATH}    (optional) Set path to custom banner. This can be a local (drop in 'public' folder) or remote location
    -d, --devnet                  set 'devnet' as network
+   -e {TEXT}, --header={TEXT}    (optional) set custom header text
    -g {NAME}, --ghname {NAME}    set github username
    -h, --help                    print command line options
+   -l {PATH}, --logo={PATH}      (optional) set custom logo path. This can be a local (drop in 'public' folder) or remote location
    -m, --mainnet                 set 'mainnet' as network
-   -s {NAME}, --sitename {NAME}  set public DNS name for website
+   -p {PRICE}, --price={PRICE}   set token price in SOL
+   -s {NAME}, --sitename={NAME}  set public DNS name for website for public access
+   -t {NAME}, --storename={NAME} (optional) set name of store website to be displayed
+   -u {TEXT}, --subheader={TEXT} (optional) set custom subheader text
    -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
 EOF
 }
@@ -91,9 +105,14 @@ initial_store_help_print() {
 Usage: sol-nft-factory initial_store <options>
 
 Options:
-   -g {NAME}, --ghname {NAME}    set github username
+   -b {PATH}, --banner={PATH}    (optional) Set path to custom banner. This can be a local (drop in 'public' folder) or remote location
+   -e {TEXT}, --header={TEXT}    (optional) set custom header text
+   -g {NAME}, --ghname={NAME}    set github username
    -h, --help                    print command line options
-   -s {NAME}, --sitename {NAME}  set public DNS name for website
+   -l {PATH}, --logo={PATH}      set custom logo path. This can be a local (drop in 'public' folder) or remote location
+   -s {NAME}, --sitename={NAME}  set public DNS name for website for public access
+   -t {NAME}, --storename={NAME} (optional) set name of store website to be displayed
+   -u {TEXT}, --subheader={TEXT} (optional) set custom subheader text
    -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
 EOF
 }
@@ -103,21 +122,23 @@ initial_mint_help_print() { # print help text for 'initial_mint' command
 Usage: sol-nft-factory initial_mint <options>
 
 Options:
-   -d, --devnet            set 'devnet' as network
-   -h, --help              print command line options
-   -m, --mainnet           set 'mainnet' as network
-   -w {ID}, --wallet={ID}  set public wallet key address from Phantom or other source
+   -d, --devnet                  set 'devnet' as network
+   -h, --help                    print command line options
+   -m, --mainnet                 set 'mainnet' as network
+   -p {PRICE}, --price={PRICE}   set token price in SOL
+   -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
 EOF
 }
 
-mint_more_help_print() { # print help text for 'initial_mint' command
+mint_more_help_print() { # print help text for 'mint_more' command
     cat <<EOF
 Usage: sol-nft-factory mint_more <options>
 
 Options:
-   -d, --devnet            set 'devnet' as network
-   -h, --help              print command line options
-   -m, --mainnet           set 'mainnet' as network
+   -d, --devnet                  set 'devnet' as network
+   -h, --help                    print command line options
+   -m, --mainnet                 set 'mainnet' as network
+   -p {PRICE}, --price={PRICE}   set token price in SOL
 EOF
 }
 
@@ -126,10 +147,24 @@ site_customize_help_print() {
 Usage: sol-nft-factory site_customize <options>
 
 Options:
+   -b {PATH}, --banner={PATH}    (optional) Set path to custom banner. This can be a local (drop in 'public' folder) or remote location
+   -e {TEXT}, --header={TEXT}    (optional) set custom header text
    -g {NAME}, --ghname {NAME}    set github username
    -h, --help                    print command line options
-   -s {NAME}, --sitename {NAME}  set public DNS name for website
+   -l {PATH}, --logo={PATH}      set custom logo path (local or remote)
+   -s {NAME}, --sitename {NAME}  set public DNS name for website for public access
+   -t {NAME}, --storename={NAME} set name of store website to be displayed
+   -u {TEXT}, --subheader={TEXT} (optional) set custom subheader text
    -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
+EOF
+}
+
+site_reset_help_print() {
+   cat <<EOF
+Usage: sol-nft-factory site_reset <options>
+
+Options:
+   -h, --help  print command line options
 EOF
 }
 
@@ -484,7 +519,7 @@ candy_machine() {
    success_printf "Tokens signed successfully."
 
    echo ""
-   echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallet: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt]${normal}"
+   echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallets: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt] [9inpsvQZYiTekRJEuNBLjPjNoQzSCDx9iuHMq3uTzssB]${normal}"
 }
 
 package_json_changes() {
@@ -548,6 +583,85 @@ metaplex_setup() {
       spinner
       check_cmd $? "failed to deploy website"
       success_printf "Website deployed successfully."
+
+      if [ "${subcommand}" = "install_store" ]; then
+         echo ""
+         echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallets: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt] [9inpsvQZYiTekRJEuNBLjPjNoQzSCDx9iuHMq3uTzssB]${normal}"
+      fi
+   fi
+}
+
+site_reset () { # Revert customizations back to original
+   printf "Reverting changes..."
+   # Revert website name change
+   sed -i "s|<title>.*</title>|<title>Metaplex NFT Marketplace</title>|" ${sitepath}/src/pages/_app.tsx
+   check_cmd $? "Unable to revert changes"
+   sed -i "s|<meta name=\"description\" content=\".*\" />|<meta name=\"description\" content=\"Metaplex NFT Marketplace\" />|" ${sitepath}/src/pages/_document.tsx
+   check_cmd $? "Unable to revert changes"
+   
+   # Revert website logo
+   sed -i "s|img src={.*}|img src={'/metaplex-logo.svg'}|" ${sitepath}/views/home/auctionList.tsx
+   check_cmd $? "Unable to revert changes"
+   sed -i "s/background-size: 100% 100%;/background-size: 924px 100%;/" ${sitepath}/components/Banner/index.less
+   check_cmd $? "Unable to revert changes"
+   sed -i "s/${no_gradient}/${gradient}/" ${sitepath}/components/Banner/index.less
+   check_cmd $? "Unable to revert changes"
+   
+   # Revert website banner
+   sed -i "s|src=\".*\"|src=\"/main-banner.svg\"|" ${sitepath}/src/views/home/auctionList.tsx
+   check_cmd $? "Unable to revert changes"
+   
+   # Revert header text change
+   sed -i "s/headingText=\".*\"/headingText=\"The amazing world of Metaplex.\"/" ${sitepath}/views/home/auctionList.tsx
+   check_cmd $? "Unable to revert changes"
+
+   # Revert subheader text change
+   sed -i "s/subHeadingText=\".*\"/subHeadingText=\"Buy exclusive Metaplex NFTs.\"/" ${sitepath}/views/home/auctionList.tsx
+   check_cmd $? "Unable to revert changes"
+
+   success_printf "Changes reverted successfully."
+}
+
+site_custom() { # run customizations of website
+   if [ "${storename}" != "" ]; then # Website name change
+      printf "Changing website name..."
+      sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/src/pages/_app.tsx
+      check_cmd $? "Unable to set name."
+      sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/src/pages/_document.tsx
+      check_cmd $? "Unable to set name."
+      success_printf "Website name changed successfully."
+   fi
+
+   if [ "${logo_path}" != "" ]; then # Site Logo change
+      printf "Changing website logo..."
+      sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${logo_path}'}|" ${sitepath}/views/home/auctionList.tsx
+      check_cmd $? "Unable to change logo."
+      sed -i "s/background-size: 924px 100%;/background-size: 100% 100%;/" ${sitepath}/components/Banner/index.less
+      check_cmd $? "Unable to change logo size."
+      sed -i "s/${gradient}/${no_gradient}/" ${sitepath}/components/Banner/index.less
+      check_cmd $? "Unable to remove gradient."
+      success_printf "Website logo changed successfully."
+   fi
+
+   if [ "${banner}" != "" ]; then # Banner image change
+      printf "Changing banner image..."
+      sed -i "s|/main-banner.svg|${banner}|" ${sitepath}/src/views/home/auctionList.tsx
+      check_cmd $? "Unable to change banner image."
+      success_printf "Banner image changed successfully."
+   fi
+
+   if [ "${header}" != "" ]; then # Header text change
+      printf "Changing header text..."
+      sed -i "s/The amazing world of Metaplex./${header}/" ${sitepath}/views/home/auctionList.tsx
+      check_cmd $? "Unable to change header text."
+      success_printf "Header text changed successfully."
+   fi
+
+   if [ "${subheader}" != "" ]; then # Subheader text change
+      printf "Changing subheader text..."
+      sed -i "s/Buy exclusive Metaplex NFTs./${subheader}/" ${sitepath}/views/home/auctionList.tsx
+      check_cmd $? "Unable to change subheader text."
+      success_printf "Subheader text changed successfully."
    fi
 }
 
@@ -584,6 +698,8 @@ init_full() {
    install_prereqs
 
    metaplex_setup
+
+   site_custom
 
    candy_machine
 
@@ -642,6 +758,8 @@ init_store() {
 
    metaplex_setup
 
+   site_custom
+
    exit 0 # normal exit
 }
 
@@ -665,10 +783,6 @@ mint() {
    exit 0
 }
 
-site_custom() {
-   # TO-DO
-}
-
 ## USER INPUT
 while getopts ":h-:" OPT; do
    if [ "$OPT" = "-" ]; then  # long option support
@@ -688,106 +802,140 @@ shift $((OPTIND-1)) # remove parsed options and args from $@ list
 subcommand=$1; shift # remove script name from arg list
 case "$subcommand" in
    initial_full)
-      while getopts ":dg:hms:w:-:" opt; do
-         if [ "$OPT" = "-" ]; then   # long option support
-               OPT="${OPTARG%%=*}"     # extract long option name
-               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
-               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+      while getopts ":b:de:g:hl:mp:s:t:u:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then  # long option support
+            OPT="${OPTARG%%=*}"     # extract long option name
+            OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+            OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
          fi
 
          case ${opt} in
-               d | devnet )      network='devnet' ;;                 # set devnet
-               g | ghname)       github_name="${OPTARG}";;           # set github username
-               h | help )        initial_full_help_print; exit 0;;   # print help
-               m | mainnet )     network='mainnet-beta' ;;           # set mainnet
-               s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
-               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
-               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
-               ? )               bad_opt "Unkown option" ;;          # bad short option
+            b | banner )      banner="${OPTARG}";;                # get path to banner image
+            d | devnet )      network='devnet' ;;                 # set devnet
+            e | header )      header="${OPTARG}";;                # set header text
+            g | ghname)       github_name="${OPTARG}";;           # set github username
+            h | help )        initial_full_help_print; exit 0;;   # print help
+            l | logo )        logo_path="${OPTARG}";;             # set logo path
+            m | mainnet )     network='mainnet-beta' ;;           # set mainnet
+            p | price )       price="${OPTARG}";;                 # set price of tokens
+            s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
+            t | storename )   storename="${OPTARG}";;             # set website display name
+            u | subheader )   subheader="${OPTARG}";;             # Set subheader text
+            w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+            ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+            ? )               bad_opt "Unkown option" ;;          # bad short option
          esac
       done
       shift $((OPTIND-1))
       ;;
    initial_mint)
-      while getopts ":dhmw:-:" opt; do
-         if [ "$OPT" = "-" ]; then   # long option support
-               OPT="${OPTARG%%=*}"     # extract long option name
-               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
-               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+      while getopts ":dhmp:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then  # long option support
+            OPT="${OPTARG%%=*}"     # extract long option name
+            OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+            OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
          fi
 
          case ${opt} in
-               d | devnet )      network='devnet' ;;                 # set devnet
-               h | help )        initial_mint_help_print; exit 0;;   # print help
-               m | mainnet )     network='mainnet-beta' ;;           # set mainnet
-               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
-               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
-               ? )               bad_opt "Unkown option" ;;          # bad short option
+            d | devnet )      network='devnet' ;;                 # set devnet
+            h | help )        initial_mint_help_print; exit 0;;   # print help
+            m | mainnet )     network='mainnet-beta' ;;           # set mainnet
+            p | price )       price="${OPTARG}";;                 # set price of tokens
+            w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+            ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+            ? )               bad_opt "Unkown option" ;;          # bad short option
          esac
       done
       shift $((OPTIND-1))
       ;;
    initial_store)
-      while getopts ":g:hs:w:-:" opt; do
-         if [ "$OPT" = "-" ]; then   # long option support
-               OPT="${OPTARG%%=*}"     # extract long option name
-               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
-               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+      while getopts ":b:e:g:hl:s:t:u:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then  # long option support
+            OPT="${OPTARG%%=*}"     # extract long option name
+            OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+            OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
          fi
 
          case ${opt} in
-               g | ghname)       github_name="${OPTARG}";;           # set github username
-               h | help )        initial_store_help_print; exit 0;;  # print help
-               s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
-               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
-               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
-               ? )               bad_opt "Unkown option" ;;          # bad short option
+            b | banner )      banner="${OPTARG}";;                # get path to banner image
+            e | header )      header="${OPTARG}";;                # set header text
+            g | ghname)       github_name="${OPTARG}";;           # set github username
+            h | help )        initial_store_help_print; exit 0;;  # print help
+            l | logo )        logo_path="${OPTARG}";;             # set logo path
+            s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
+            t | storename )   storename="${OPTARG}";;             # set website display name
+            u | subheader )   subheader="${OPTARG}";;             # Set subheader text
+            w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+            ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+            ? )               bad_opt "Unkown option" ;;          # bad short option
          esac
       done
       shift $((OPTIND-1))
       ;;
    mint_more)
-      while getopts ":dhm-:" opt; do
-         if [ "$OPT" = "-" ]; then   # long option support
-               OPT="${OPTARG%%=*}"     # extract long option name
-               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
-               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+      while getopts ":dhmp:-:" opt; do
+         if [ "$OPT" = "-" ]; then  # long option support
+            OPT="${OPTARG%%=*}"     # extract long option name
+            OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+            OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
          fi
 
          case ${opt} in
-               d | devnet )      network='devnet' ;;                 # set devnet
-               h | help )        mint_more_help_print; exit 0;;      # print help
-               m | mainnet )     network='mainnet-beta' ;;           # set mainnet
-               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
-               ? )               bad_opt "Unknown option" ;;         # bad short option
+            d | devnet )      network='devnet' ;;                 # set devnet
+            h | help )        mint_more_help_print; exit 0;;      # print help
+            m | mainnet )     network='mainnet-beta' ;;           # set mainnet
+            p | price )       price="${OPTARG}";;                 # set price of tokens
+            ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+            ? )               bad_opt "Unknown option" ;;         # bad short option
          esac
       done
       shift $((OPTIND-1))
       ;;
    site_customize)
-      while getopts ":g:hs:w:-:" opt; do
-         if [ "$OPT" = "-" ]; then   # long option support
-               OPT="${OPTARG%%=*}"     # extract long option name
-               OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
-               OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+      while getopts ":b:e:g:hl:s:t:u:w:-:" opt; do
+         if [ "$OPT" = "-" ]; then  # long option support
+            OPT="${OPTARG%%=*}"     # extract long option name
+            OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+            OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
          fi
 
          case ${opt} in
-               g | ghname)       github_name="${OPTARG}";;           # set github username
-               h | help )        initial_store_help_print; exit 0;;  # print help
-               s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
-               w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
-               ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
-               ? )               bad_opt "Unkown option" ;;          # bad short option
+            b | banner )      banner="${OPTARG}";;                # get path to banner image
+            e | header )      header="${OPTARG}";;                # set header text
+            g | ghname)       github_name="${OPTARG}";;           # set github username
+            h | help )        site_customize_help_print; exit 0;; # print help
+            l | logo )        logo_path="${OPTARG}";;             # set logo path
+            s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
+            u | subheader )   subheader="${OPTARG}";;             # Set subheader text
+            t | storename )   storename="${OPTARG}";;             # set website display name
+            w | wallet )      pubkey="${OPTARG}" ;;               # set public wallet key address
+            ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+            ? )               bad_opt "Unkown option" ;;          # bad short option
+         esac
+      done
+      shift $((OPTIND-1))
+      ;;
+   site_reset)
+      while getopts ":h-:" opt; do
+         if [ "$OPT" = "-" ]; then  # long option support
+            OPT="${OPTARG%%=*}"     # extract long option name
+            OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
+            OPTARG="${OPTARG#=}"    # if long option argument, remove assigning '='
+         fi
+
+         case ${opt} in
+            h | help )        siet_reset_help_print; exit 0;;     # print help
+            ??* )             bad_opt "Unknown option --$OPT" ;;  # bad long option
+            ? )               bad_opt "Unkown option" ;;          # bad short option
          esac
       done
       shift $((OPTIND-1))
       ;;
 esac
 
+# MAIN SCRIPT
 if [ "${subcommand}" = "" ]; then
    err_print "Fatal: no command passed!"
-   warn_print "Pass 'initial_mint' or 'mint_more' plus any required options"
    help_print
    exit 1
 elif [ "${subcommand}" = "initial_mint" ]; then
@@ -797,11 +945,17 @@ elif [ "${subcommand}" = "mint_more" ]; then
    clear # Start with a fresh screen
    mint
 elif [ "${subcommand}" = "initial_full" ]; then
-   clear # STart with a fresh screen
+   clear # Start with a fresh screen
    init_full
 elif [ "${subcommand}" = "initial_store" ]; then
-   clear # STart with a fresh screen
+   clear # Start with a fresh screen
    init_store
+elif [ "${subcommand}" = "site_customize" ]; then
+   clear # Start with a fresh screen
+   site_custom
+elif [ "${subcommand}" = "site_reset" ]; then
+   clear # Start with a fresh screen
+   site_reset
 else
    err_print "Fatal: unknonw command!"
    help_print
