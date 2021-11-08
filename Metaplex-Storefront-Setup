@@ -41,9 +41,9 @@ EOF
 #Error Checking
 error_check () {
   if [ $? = 0 ]; then
-    echo "Previous Change Succeeded..."
+    echo "PASS"
   else
-    echo "Previous Change Failed!"
+    echo "FAIL"
   fi
 }
 
@@ -59,23 +59,23 @@ while [ ${CHANGES} != "Y" ] || [ ${CHANGES} != "y" ]; do
   read -p "Are you satisfied with your changes to [ ${SITENAME} ]?" CHANGES
   if [ ${CHANGES} = "y" ] || [ ${CHANGES} = "Y" ]; then
     sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_app.tsx
-    echo "Store Name: " error_check
+    echo "Store Name: " && error_check
     sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_document.tsx
-    echo "Store Name: " error_check
+    echo "Store Name: " && error_check
     sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${LOGO}'}|" ${SITEPATH}/views/home/auctionList.tsx
-    echo "Logo Link Installed: " error_check
+    echo "Logo Link Installed: " && error_check
     echo "Adjusting background size..."
     sed -i "s/background-size: 924px 100%;/background-size: 100% 100%;/" ${SITEPATH}/components/Banner/index.less
-    echo "Background size adjustment: " error_check
+    echo "Background size adjustment: " && error_check
     echo "Removing gradient from overshadowing banner..."
     sed -i "s/${GRADIENT}/${NO_GRADIENT}/" ${SITEPATH}/components/Banner/index.less
-    echo "Gradient Removed: " error_check
+    echo "Gradient Removed: " && error_check
     sed -i "s|/main-banner.svg|${BANNER}|" ${SITEPATH}/src/views/home/auctionList.tsx
-    echo "Banner Link Added: " error_check
+    echo "Banner Link Added: " && error_check
     sed -i "s/The amazing world of Metaplex./${HEADING}/" ${SITEPATH}/views/home/auctionList.tsx
-    echo "Heading Changed: " error_check
+    echo "Heading Changed: " && error_check
     sed -i "s/Buy exclusive Metaplex NFTs./${SUBHEAD}/" ${SITEPATH}/views/home/auctionList.tsx
-    echo "SubHeading Changed: " error_check
+    echo "SubHeading Changed: " && error_check
     sleep 3
     clear
     echo "The site will now be deployed. Have your github account and access code ready..."
