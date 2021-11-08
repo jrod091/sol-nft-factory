@@ -60,6 +60,10 @@ header=''
 subheader=''
 gradient="background: linear-gradient(180deg, rgba(18, 18, 18, 0) 0%, @black-100 100%);"
 no_gradient="background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);"
+ssh_priv="${HOME}/.ssh/id_ed25519"
+ssh_pub="${ssh_priv}.pub"
+ssh_req=0
+gh_token=''
 
 ## FUNCTIONS
 help_print() { # print help text
@@ -93,6 +97,7 @@ Options:
    -h, --help                    print command line options
    -l {PATH}, --logo={PATH}      (optional) set custom logo path. This can be a local (drop in 'public' folder) or remote location
    -m, --mainnet                 set 'mainnet' as network
+   -o, --token                   set github token, requires following permissions: full repo, read:org, write:public_key
    -p {PRICE}, --price={PRICE}   set token price in SOL
    -s {NAME}, --sitename={NAME}  set public DNS name for website for public access
    -t {NAME}, --storename={NAME} (optional) set name of store website to be displayed
@@ -111,6 +116,7 @@ Options:
    -g {NAME}, --ghname={NAME}    set github username
    -h, --help                    print command line options
    -l {PATH}, --logo={PATH}      (optional) set custom logo path. This can be a local (drop in 'public' folder) or remote location
+   -o, --token                   set github token, requires following permissions: full repo, read:org, write:public_key
    -s {NAME}, --sitename={NAME}  set public DNS name for website for public access
    -t {NAME}, --storename={NAME} (optional) set name of store website to be displayed
    -u {TEXT}, --subheader={TEXT} (optional) set custom subheader text
@@ -813,6 +819,60 @@ mint() {
    exit 0
 }
 
+check_token() {
+   if [ "${gh_token}" = "" ]; then
+      err_printf "Fatal: SSH key not found on system, github token required!"
+      warn_printf "Pass the [-o] flag along with github token."
+
+      if [ "${subcommand}" = "initial_full" ]; then
+         initial_full_help_print
+      else
+         initial_store_help_print
+      fi
+      exit 18
+   fi
+}
+
+ssh_key_create() { # create SSH key if not found
+   printf "Checking to see if [gh] installed..."
+   if gh --version &>/dev/null; then
+      success_printf "[gh] found"
+   else
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+      install_pkg gh
+      echo "${gh_token}" > token.txt
+      gh auth login --with-token < token.txt
+      check_cmd $? "Unable to authorize github login"
+      rm token.txt
+      success_printf "[gh] installed successfully."
+   fi
+
+   printf "SSH key not found, generating..."
+   ssh-keygen -t ed25519 -f ${ssh_priv} -q -N "" 2>${log_file}
+   check_cmd $? "SSH failed to generate"
+   eval "$(ssh-agent -s)" 2>${log_file} 1>/dev/null
+   check_cmd $? "Failed to start SSH agent"
+   ssh-add ${ssh_priv} 2>${log_file} 1>/dev/null
+   check_cmd $? "Failed to add SSH key"
+   gh ssh-key add ${ssh_pub} -t "candy_machine" 2>${log_file} 1>/dev/null
+   check_cmd $? "Unable to add SSH key to github account"
+
+   success_printf "SSH key added to github account."
+}
+
+ssh_key_check() { # check if ssh key exists on system
+   if [ ! -d "${HOME}/.ssh" ]; then
+      check_token
+      ssh_key_create
+   fi
+
+   if [ ! -f "${HOME}/.ssh/id_rsa.pub" && ! -f "${HOME}/.ssh/id_ecdsa.pub" && ! -f "${ssh_pub}" ]; then
+      check_token
+      ssh_key_create
+   fi
+}
+
 ## USER INPUT
 while getopts ":h-:" OPT; do
    if [ "$OPT" = "-" ]; then  # long option support
@@ -832,7 +892,7 @@ shift $((OPTIND-1)) # remove parsed options and args from $@ list
 subcommand=$1; shift # remove script name from arg list
 case "$subcommand" in
    initial_full)
-      while getopts ":b:de:g:hl:mp:s:t:u:w:-:" opt; do
+      while getopts ":b:de:g:hl:mo:p:s:t:u:w:-:" opt; do
          if [ "$OPT" = "-" ]; then  # long option support
             OPT="${OPTARG%%=*}"     # extract long option name
             OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
@@ -847,6 +907,7 @@ case "$subcommand" in
             h | help )        initial_full_help_print; exit 0;;   # print help
             l | logo )        logo_path="${OPTARG}";;             # set logo path
             m | mainnet )     network='mainnet-beta' ;;           # set mainnet
+            o | token )       gh_token="${OPTARG}";;              # set gh token
             p | price )       price="${OPTARG}";;                 # set price of tokens
             s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
             t | storename )   storename="${OPTARG}";;             # set website display name
@@ -879,7 +940,7 @@ case "$subcommand" in
       shift $((OPTIND-1))
       ;;
    initial_store)
-      while getopts ":b:e:g:hl:s:t:u:w:-:" opt; do
+      while getopts ":b:e:g:hl:o:s:t:u:w:-:" opt; do
          if [ "$OPT" = "-" ]; then  # long option support
             OPT="${OPTARG%%=*}"     # extract long option name
             OPTARG="${OPTARG#$OPT}" # extract long option argument (may be empty)
@@ -892,6 +953,7 @@ case "$subcommand" in
             g | ghname)       github_name="${OPTARG}";;           # set github username
             h | help )        initial_store_help_print; exit 0;;  # print help
             l | logo )        logo_path="${OPTARG}";;             # set logo path
+            o | token )       gh_token="${OPTARG}";;              # set gh token
             s | sitename )    sitename="${OPTARG}";;              # set DNS name for site
             t | storename )   storename="${OPTARG}";;             # set website display name
             u | subheader )   subheader="${OPTARG}";;             # Set subheader text
