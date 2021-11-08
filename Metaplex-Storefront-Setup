@@ -61,20 +61,27 @@ while [ ${CHANGES} != "Y" ] || [ ${CHANGES} != "y" ]; do
     sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_app.tsx
     printf "Store Name in _app.tsx: " && error_check
     sed -i "s|Metaplex NFT Marketplace|${STORE}|" ${SITEPATH}/src/pages/_document.tsx
+    printf ""
     printf "Store Name in _document.tsx: " && error_check
     sed -i "s|img src={'/metaplex-logo.svg'}|img src={'${LOGO}'}|" ${SITEPATH}/views/home/auctionList.tsx
+    printf ""
     printf "Logo Link Installed: " && error_check
     echo "Adjusting background size..."
     sed -i "s/background-size: 924px 100%;/background-size: 100% 100%;/" ${SITEPATH}/components/Banner/index.less
+    printf ""
     printf "Background size adjustment: " && error_check
     echo "Removing gradient from overshadowing banner..."
     sed -i "s/${GRADIENT}/${NO_GRADIENT}/" ${SITEPATH}/components/Banner/index.less
+    printf ""
     printf "Gradient Removed: " && error_check
     sed -i "s|/main-banner.svg|${BANNER}|" ${SITEPATH}/src/views/home/auctionList.tsx
+    printf ""
     printf "Banner Link Added: " && error_check
     sed -i "s/The amazing world of Metaplex./${HEADING}/" ${SITEPATH}/views/home/auctionList.tsx
+    printf ""
     printf "Heading Changed: " && error_check
     sed -i "s/Buy exclusive Metaplex NFTs./${SUBHEAD}/" ${SITEPATH}/views/home/auctionList.tsx
+    printf ""
     printf "SubHeading Changed: " && error_check
     sleep 3
     clear
