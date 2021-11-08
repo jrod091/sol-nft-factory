@@ -39,6 +39,7 @@ fi
 ## VARIABLES
 network=''
 pubkey=''
+price=0
 current_dir=$(pwd)
 log_file="${current_dir}/sol-nft-factory_error.log"
 metaplex_dir="${current_dir}/metaplex"
@@ -85,7 +86,7 @@ initial_full_help_print() {
 Usage: sol-nft-factory initial_full <options>
 
 Options:
-   -b {PATH}, --banner={PATH}    (optional) Set path to custom banner. This can be a local (drop in 'public' folder) or remote location
+   -b {PATH}, --banner={PATH}    (optional) set path to custom banner. This can be a local (drop in 'public' folder) or remote location
    -d, --devnet                  set 'devnet' as network
    -e {TEXT}, --header={TEXT}    (optional) set custom header text
    -g {NAME}, --ghname {NAME}    set github username
@@ -105,11 +106,11 @@ initial_store_help_print() {
 Usage: sol-nft-factory initial_store <options>
 
 Options:
-   -b {PATH}, --banner={PATH}    (optional) Set path to custom banner. This can be a local (drop in 'public' folder) or remote location
+   -b {PATH}, --banner={PATH}    (optional) set path to custom banner. This can be a local (drop in 'public' folder) or remote location
    -e {TEXT}, --header={TEXT}    (optional) set custom header text
    -g {NAME}, --ghname={NAME}    set github username
    -h, --help                    print command line options
-   -l {PATH}, --logo={PATH}      set custom logo path. This can be a local (drop in 'public' folder) or remote location
+   -l {PATH}, --logo={PATH}      (optional) set custom logo path. This can be a local (drop in 'public' folder) or remote location
    -s {NAME}, --sitename={NAME}  set public DNS name for website for public access
    -t {NAME}, --storename={NAME} (optional) set name of store website to be displayed
    -u {TEXT}, --subheader={TEXT} (optional) set custom subheader text
@@ -147,14 +148,14 @@ site_customize_help_print() {
 Usage: sol-nft-factory site_customize <options>
 
 Options:
-   -b {PATH}, --banner={PATH}    (optional) Set path to custom banner. This can be a local (drop in 'public' folder) or remote location
-   -e {TEXT}, --header={TEXT}    (optional) set custom header text
+   -b {PATH}, --banner={PATH}    set path to custom banner. This can be a local (drop in 'public' folder) or remote location
+   -e {TEXT}, --header={TEXT}    set custom header text
    -g {NAME}, --ghname {NAME}    set github username
    -h, --help                    print command line options
    -l {PATH}, --logo={PATH}      set custom logo path (local or remote)
    -s {NAME}, --sitename {NAME}  set public DNS name for website for public access
    -t {NAME}, --storename={NAME} set name of store website to be displayed
-   -u {TEXT}, --subheader={TEXT} (optional) set custom subheader text
+   -u {TEXT}, --subheader={TEXT} set custom subheader text
    -w {ID}, --wallet={ID}        set public wallet key address from Phantom or other source
 EOF
 }
@@ -623,6 +624,14 @@ site_reset () { # Revert customizations back to original
 }
 
 site_custom() { # run customizations of website
+   if [ "${subcommand}" = "site_customize" ]; then # check for input if being called directly
+      if [ "${banner}" = "" && "${header}" = "" && "${ghname}" == "" && "${logo}" = "" && "${sitename}" = "" && "${storename}" = "" && "${subheader}" = "" && "${pubkey}" = "" ]; then # no flags passed, nothing to customize
+         err_print "No customization flags passed! Please pass at least one flag!"
+         site_customize_help_print
+         exit 16
+      fi
+   fi
+
    if [ "${storename}" != "" ]; then # Website name change
       printf "Changing website name..."
       sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/src/pages/_app.tsx
@@ -683,7 +692,7 @@ init_full() {
 
    if [ "${pubkey}" = "" ]; then
       err_print "Fatal: Wallet address required!"
-      warn_print "Pass the [-n] flag to create a new wallet or the [-w] flag followed by your wallet address"
+      warn_print "Pass the [-w] flag followed by your wallet address"
       init_full_help_print
       exit 4
    fi
@@ -693,6 +702,13 @@ init_full() {
       warn_print "Pass the [-s] flag along with the DNS name for the store website"
       init_full_help_print
       exit 5
+   fi
+
+   if [ ${price} -eq 0 ]; then
+      err_print "Fatal: No price set!"
+      warn_print "Pass the [-p] flag followed by a desired price, in SOL"
+      init_full_help_print
+      exit 6
    fi
 
    install_prereqs
@@ -720,6 +736,13 @@ init_mint() {
       warn_print "Pass the [-n] flag to create a new wallet or the [-w] flag followed by your wallet address"
       init_mint_help_print
       exit 4
+   fi
+
+   if [ ${price} -eq 0 ]; then
+      err_print "Fatal: No price set!"
+      warn_print "Pass the [-p] flag followed by a desired price, in SOL"
+      init_mint_help_print
+      exit 6
    fi
 
    install_prereqs
@@ -774,6 +797,13 @@ mint() {
       warn_print "Pass the [-d] flag for devnet or the [-m] flag for mainnet"
       mint_more_help_print
       exit 3
+   fi
+
+   if [ ${price} -eq 0 ]; then
+      err_print "Fatal: No price set!"
+      warn_print "Pass the [-p] flag followed by a desired price, in SOL"
+      mint_more_help_print
+      exit 6
    fi
 
    rm -rf "${current_dir}/.cache" &>/dev/null
