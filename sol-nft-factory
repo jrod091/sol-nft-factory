@@ -62,7 +62,6 @@ gradient="background: linear-gradient(180deg, rgba(18, 18, 18, 0) 0%, @black-100
 no_gradient="background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);"
 ssh_priv="${HOME}/.ssh/id_ed25519"
 ssh_pub="${ssh_priv}.pub"
-ssh_req=0
 gh_token=''
 
 ## FUNCTIONS
@@ -292,10 +291,12 @@ install_prereqs() { # check for and install prereqs
    `sudo apt-update &>/dev/null` # just to prompt for sudo password upfront
 
    # install pre-requisites
-   if check_installed curl; then
-      success_printf "[curl] found."
-   else
-      install_pkg curl
+   if [ "${subcommand}" = "initial_mint" ]; then
+      if check_installed curl; then
+         success_printf "[curl] found."
+      else
+         install_pkg curl
+      fi
    fi
 
    if check_installed gcc; then
@@ -532,13 +533,13 @@ candy_machine() {
 package_json_changes() {
    package_json="${web_dir}/package.json"
    # Change the owner name of the repository for Metaplex."
-   sed -i 's/metaplex-foundation/'${GITHUB}'/g' ${package_json}
+   sed -i 's/metaplex-foundation/'${github_name}'/g' ${package_json}
    # Modify Asset Prefix in package.json line 56.
-   sed -i "s|${asset_pfix_old}|${asset_pfix_new}|" ${package_json}
+   sed -i "s|ASSET_PREFIX=/metaplex/|ASSET_PREFIX=|" ${package_json}
    # Change access to SSH based so there is no prompt for username/password
    sed -i "s|https://github.com/|git@github.com:|" ${package_json}
    # Set wallet address
-   sed -i "s/REACT_APP_STORE_OWNER_ADDRESS_ADDRESS=/REACT_APP_STORE_OWNER_ADDRESS_ADDRESS=${pubkey}/" ${package_json}
+   sed -i "s/REACT_APP_STORE_OWNER_ADDRESS_ADDRESS=/REACT_APP_STORE_OWNER_ADDRESS_ADDRESS=${pubkey}/" ${web_dir}/.env
    # Add CNAME
    echo ${sitename} > ${web_dir}/public/CNAME
 }
@@ -552,8 +553,14 @@ metaplex_setup() {
       else
          metaplex_clone="git@github.com:${github_name}/metaplex.git"
       fi
+
+      echo "|1|RCKrz56TU4Et69sBFuVfVRPHBfM=|64rY1Ne/MOwAtzNnN9Rl+qMbXmM= ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==" > ${HOME}/.ssh/known_hosts
       git clone ${metaplex_clone} &>/dev/null &
       spinner
+      if [ $? -eq 128 ]; then
+         gh repo fork metaplex-foundation/metaplex --clone --remote &>/dev/null &
+         spinner
+      fi
       check_cmd $? "failed to clone [metaplex] repo."
       success_printf "[metaplex] repo cloned successfully."
    fi
@@ -568,7 +575,7 @@ metaplex_setup() {
       success_printf "Node modules installed successfully."
    fi
 
-   if [ "${subcommand}" = "install_full" || "${subcommand}" = "install_store" ]; then
+   if [ "${subcommand}" = "initial_full" ] || [ "${subcommand}" = "initial_store" ]; then
       printf "Bundling app into static files for production..."
       yarn build 2>>${log_file} 1>/dev/null &
       spinner
@@ -585,13 +592,15 @@ metaplex_setup() {
 
       cd ${web_dir}
 
+      site_custom
+
       printf "Deploying website back to Github..."
       yarn deploy 2>>${log_file} 1>/dev/null &
       spinner
       check_cmd $? "failed to deploy website"
       success_printf "Website deployed successfully."
 
-      if [ "${subcommand}" = "install_store" ]; then
+      if [ "${subcommand}" = "initial_store" ]; then
          echo ""
          echo "${green}Thanks for using this script! If you found it useful, please consider donating! SOL Wallets: [A2CWE3TUqMBNfbnksZNa67N9b9t76jjNCm9H1Jm4DQYt] [9inpsvQZYiTekRJEuNBLjPjNoQzSCDx9iuHMq3uTzssB]${normal}"
       fi
@@ -601,9 +610,9 @@ metaplex_setup() {
 site_reset () { # Revert customizations back to original
    printf "Reverting changes..."
    # Revert website name change
-   sed -i "s|<title>.*</title>|<title>Metaplex NFT Marketplace</title>|" ${sitepath}/src/pages/_app.tsx
+   sed -i "s|<title>.*</title>|<title>Metaplex NFT Marketplace</title>|" ${sitepath}/pages/_app.tsx
    check_cmd $? "Unable to revert changes"
-   sed -i "s|<meta name=\"description\" content=\".*\" />|<meta name=\"description\" content=\"Metaplex NFT Marketplace\" />|" ${sitepath}/src/pages/_document.tsx
+   sed -i "s|<meta name=\"description\" content=\".*\" />|<meta name=\"description\" content=\"Metaplex NFT Marketplace\" />|" ${sitepath}/pages/_document.tsx
    check_cmd $? "Unable to revert changes"
    
    # Revert website logo
@@ -615,7 +624,7 @@ site_reset () { # Revert customizations back to original
    check_cmd $? "Unable to revert changes"
    
    # Revert website banner
-   sed -i "s|src=\".*\"|src=\"/main-banner.svg\"|" ${sitepath}/src/views/home/auctionList.tsx
+   sed -i "s|src=\".*\"|src=\"/main-banner.svg\"|" ${sitepath}/views/home/auctionList.tsx
    check_cmd $? "Unable to revert changes"
    
    # Revert header text change
@@ -640,9 +649,9 @@ site_custom() { # run customizations of website
 
    if [ "${storename}" != "" ]; then # Website name change
       printf "Changing website name..."
-      sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/src/pages/_app.tsx
+      sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/pages/_app.tsx
       check_cmd $? "Unable to set name."
-      sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/src/pages/_document.tsx
+      sed -i "s|Metaplex NFT Marketplace|${storename}|" ${sitepath}/pages/_document.tsx
       check_cmd $? "Unable to set name."
       success_printf "Website name changed successfully."
    fi
@@ -660,7 +669,7 @@ site_custom() { # run customizations of website
 
    if [ "${banner}" != "" ]; then # Banner image change
       printf "Changing banner image..."
-      sed -i "s|/main-banner.svg|${banner}|" ${sitepath}/src/views/home/auctionList.tsx
+      sed -i "s|/main-banner.svg|${banner}|" ${sitepath}/views/home/auctionList.tsx
       check_cmd $? "Unable to change banner image."
       success_printf "Banner image changed successfully."
    fi
@@ -685,43 +694,43 @@ init_full() {
    if [ "${github_name}" = "" ]; then
       err_print "Fatal: Github username not set!"
       warn_print "Pass the [-g] flag along with your Github username."
-      init_full_help_print
+      initial_full_help_print
       exit 2
    fi
 
    if [ "${network}" = "" ]; then
       err_print "Fatal: Solana network not set!"
       warn_print "Pass the [-d] flag for devnet or the [-m] flag for mainnet"
-      init_full_help_print
+      initial_full_help_print
       exit 3
    fi
 
    if [ "${pubkey}" = "" ]; then
       err_print "Fatal: Wallet address required!"
       warn_print "Pass the [-w] flag followed by your wallet address"
-      init_full_help_print
+      initial_full_help_print
       exit 4
    fi
 
    if [ "${sitename}" = "" ]; then
       err_print "Fatal: DNS name not set!"
       warn_print "Pass the [-s] flag along with the DNS name for the store website"
-      init_full_help_print
+      initial_full_help_print
       exit 5
    fi
 
    if [ ${price} -eq 0 ]; then
       err_print "Fatal: No price set!"
       warn_print "Pass the [-p] flag followed by a desired price, in SOL"
-      init_full_help_print
+      initial_full_help_print
       exit 6
    fi
+
+   ssh_key_check
 
    install_prereqs
 
    metaplex_setup
-
-   site_custom
 
    candy_machine
 
@@ -765,29 +774,29 @@ init_store() {
    if [ "${github_name}" = "" ]; then
       err_print "Fatal: Github username not set!"
       warn_print "Pass the [-g] flag along with your Github username."
-      init_full_help_print
+      initial_store_help_print
       exit 2
    fi
 
    if [ "${pubkey}" = "" ]; then
       err_print "Fatal: Wallet address required!"
       warn_print "Pass the [-w] flag followed by your wallet address"
-      init_full_help_print
+      initial_store_help_print
       exit 3
    fi
 
    if [ "${sitename}" = "" ]; then
       err_print "Fatal: DNS name not set!"
       warn_print "Pass the [-s] flag along with the DNS name for the store website"
-      init_full_help_print
+      initial_store_help_print
       exit 4
    fi
+
+   ssh_key_check
 
    install_prereqs
 
    metaplex_setup
-
-   site_custom
 
    exit 0 # normal exit
 }
@@ -821,8 +830,8 @@ mint() {
 
 check_token() {
    if [ "${gh_token}" = "" ]; then
-      err_printf "Fatal: SSH key not found on system, github token required!"
-      warn_printf "Pass the [-o] flag along with github token."
+      err_print "Fatal: SSH key not found on system, github token required!"
+      warn_print "Pass the [-o] flag along with github token."
 
       if [ "${subcommand}" = "initial_full" ]; then
          initial_full_help_print
@@ -834,18 +843,25 @@ check_token() {
 }
 
 ssh_key_create() { # create SSH key if not found
+   sudo apt update &>/dev/null # just to prompt for sudo password
    printf "Checking to see if [gh] installed..."
    if gh --version &>/dev/null; then
       success_printf "[gh] found"
    else
-      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+      # install pre-requisites
+      if check_installed curl; then
+         success_printf "[curl] found."
+      else
+         install_pkg curl
+      fi
+
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg &>/dev/null
       echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
       install_pkg gh
       echo "${gh_token}" > token.txt
       gh auth login --with-token < token.txt
       check_cmd $? "Unable to authorize github login"
       rm token.txt
-      success_printf "[gh] installed successfully."
    fi
 
    printf "SSH key not found, generating..."
@@ -867,7 +883,7 @@ ssh_key_check() { # check if ssh key exists on system
       ssh_key_create
    fi
 
-   if [ ! -f "${HOME}/.ssh/id_rsa.pub" && ! -f "${HOME}/.ssh/id_ecdsa.pub" && ! -f "${ssh_pub}" ]; then
+   if [ ! -f "${HOME}/.ssh/id_rsa.pub" ] && [ ! -f "${HOME}/.ssh/id_ecdsa.pub" ] && [ ! -f "${ssh_pub}" ]; then
       check_token
       ssh_key_create
    fi
